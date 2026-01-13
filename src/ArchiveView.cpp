@@ -182,15 +182,26 @@ void ArchiveView::onOpenWith() {
     }
     
     ArchiveEntry entry = model->getEntry(index);
-    if (!entry.path.isEmpty() && !entry.isDirectory) {
+    if (!entry.path.isEmpty() && !entry.isDirectory && currentHandler) {
         // Extract to temp and open
         QTemporaryDir tempDir;
-        if (tempDir.isValid() && currentHandler) {
+        if (tempDir.isValid()) {
             QString tempPath = tempDir.path();
-            if (currentHandler->extract(currentArchivePath, tempPath, QStringList() << entry.path)) {
+            QStringList files;
+            files << entry.path;
+            if (currentHandler->extract(currentArchivePath, tempPath, files)) {
+                // Handle path - entry.path might have subdirectories
                 QString extractedFile = tempPath + "/" + entry.path;
-                if (QFileInfo::exists(extractedFile)) {
-                    QDesktopServices::openUrl(QUrl::fromLocalFile(extractedFile));
+                QFileInfo fileInfo(extractedFile);
+                if (fileInfo.exists()) {
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(fileInfo.absoluteFilePath()));
+                } else {
+                    // Try just the filename if path doesn't exist
+                    QString fileName = QFileInfo(entry.path).fileName();
+                    QString altPath = tempPath + "/" + fileName;
+                    if (QFileInfo::exists(altPath)) {
+                        QDesktopServices::openUrl(QUrl::fromLocalFile(altPath));
+                    }
                 }
             }
         }

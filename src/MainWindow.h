@@ -42,6 +42,7 @@ private slots:
     void showSettings();
     void updateRecentFiles();
     void openRecentFile();
+    void refreshArchive();
     void onArchiveChanged(const QString &archivePath);
     void onProgress(const QString &message, int percentage);
     void onArchiveError(const QString &error);

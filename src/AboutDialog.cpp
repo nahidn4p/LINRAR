@@ -1,7 +1,7 @@
 #include "AboutDialog.h"
 #include <QApplication>
-#include <QTextEdit>
-#include <QScrollArea>
+#include <QLabel>
+#include <QPushButton>
 
 AboutDialog::AboutDialog(QWidget *parent)
     : QDialog(parent) {

@@ -1,5 +1,6 @@
 #include "ProcessManager.h"
 #include <QDebug>
+#include <QFileInfo>
 
 ProcessManager::ProcessManager(QObject *parent)
     : QObject(parent), process(nullptr), lastExitCode(0) {

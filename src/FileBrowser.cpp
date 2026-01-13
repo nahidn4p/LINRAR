@@ -193,6 +193,11 @@ void FileBrowser::onProperties() {
     QString fileType = info.isDir() ? tr("Directory") : tr("File");
     QString size = info.isDir() ? tr("N/A") : ArchiveUtils::formatFileSizeString(info.size());
     
+    QString permissions;
+    permissions += (info.permissions().testFlag(QFile::ReadOwner) ? "r" : "-");
+    permissions += (info.permissions().testFlag(QFile::WriteOwner) ? "w" : "-");
+    permissions += (info.permissions().testFlag(QFile::ExeOwner) ? "x" : "-");
+    
     QString infoText = tr("File Properties\n\n"
                          "Name: %1\n"
                          "Path: %2\n"
@@ -205,9 +210,7 @@ void FileBrowser::onProperties() {
                       .arg(size)
                       .arg(fileType)
                       .arg(info.lastModified().toString())
-                      .arg(info.permissions().testFlag(QFile::ReadOwner) ? "r" : "-") +
-                      (info.permissions().testFlag(QFile::WriteOwner) ? "w" : "-") +
-                      (info.permissions().testFlag(QFile::ExeOwner) ? "x" : "-");
+                      .arg(permissions);
     
     QMessageBox::information(this, tr("Properties"), infoText);
     emit propertiesRequested(path);

@@ -103,12 +103,6 @@ void MainWindow::setupMenus() {
     
     fileMenu->addSeparator();
     
-    QAction *refreshAction = fileMenu->addAction(tr("&Refresh"), this, &MainWindow::refreshArchive);
-    refreshAction->setShortcut(Qt::Key_F5);
-    refreshAction->setToolTip(tr("Refresh the archive view"));
-    
-    fileMenu->addSeparator();
-    
     exitAction = fileMenu->addAction(tr("E&xit"), qApp, &QApplication::quit);
     exitAction->setShortcut(QKeySequence::Quit);
     exitAction->setToolTip(tr("Exit the application"));
