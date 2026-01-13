@@ -103,10 +103,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/linrar.png")
             RENAME linrar.png)
 endif()
 
-# CPack configuration
-include(CPack)
-
-# Package information
+# CPack configuration - MUST be set BEFORE include(CPack)
 set(CPACK_PACKAGE_NAME "linrar")
 set(CPACK_PACKAGE_VENDOR "LINRAR")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Linux Archive Manager - WinRAR alternative for Linux")
@@ -114,19 +111,19 @@ set(CPACK_PACKAGE_DESCRIPTION "LINRAR is a modern Qt-based archive manager for L
 set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
-set(CPACK_PACKAGE_CONTACT "linrar@example.com")
+set(CPACK_PACKAGE_CONTACT "LINRAR Team <linrar@example.com>")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 
 # DEB package configuration
 set(CPACK_DEBIAN_PACKAGE_NAME "linrar")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "LINRAR Team")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "LINRAR Team <linrar@example.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 if(QT_VERSION_MAJOR EQUAL 6)
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6base6, libqt6widgets6, libqt6gui6, rar | unrar, p7zip-full | 7z, zip, unzip, tar")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6core6 (>= 6.0.0), libqt6widgets6 (>= 6.0.0), libqt6gui6 (>= 6.0.0), rar | unrar, p7zip-full | 7z, zip, unzip, tar")
 else()
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5core5a, libqt5widgets5, libqt5gui5, rar | unrar, p7zip-full | 7z, zip, unzip, tar")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5core5a (>= 5.15.0), libqt5widgets5 (>= 5.15.0), libqt5gui5 (>= 5.15.0), rar | unrar, p7zip-full | 7z, zip, unzip, tar")
 endif()
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 
@@ -147,3 +144,6 @@ set(CPACK_SOURCE_GENERATOR "TGZ")
 set(CPACK_SOURCE_IGNORE_FILES
     "/build/;/\.git/;/\.gitignore;/\.vscode/;/\.idea/;.*\.swp;.*\.swo;~$"
 )
+
+# Include CPack AFTER all configuration is set
+include(CPack)
