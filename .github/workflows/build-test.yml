@@ -29,13 +29,24 @@ jobs:
             cmake \
             build-essential \
             qt6-base-dev \
-            qt6-base-dev-tools
+            qt6-base-dev-tools \
+            libqt6core6 \
+            libqt6gui6 \
+            libqt6widgets6 \
+            pkg-config \
+            libgl1-mesa-dev
+
+      - name: Verify Qt6 installation
+        run: |
+          qmake6 --version || qmake --version || echo "qmake not found"
+          pkg-config --modversion Qt6Core || echo "Qt6 pkg-config not found"
 
       - name: Configure and build
         run: |
           mkdir -p build_test
           cd build_test
-          cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
+          # Help CMake find Qt6
+          cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6
           make -j$(nproc)
 
       - name: Test executable exists

@@ -37,9 +37,19 @@ jobs:
             build-essential \
             qt6-base-dev \
             qt6-base-dev-tools \
+            libqt6core6 \
+            libqt6gui6 \
+            libqt6widgets6 \
+            pkg-config \
+            libgl1-mesa-dev \
             wget \
             file \
             libfuse2
+
+      - name: Verify Qt6 installation
+        run: |
+          qmake6 --version || qmake --version || echo "qmake not found"
+          pkg-config --modversion Qt6Core || echo "Qt6 pkg-config not found"
 
       - name: Download linuxdeploy
         run: |
@@ -57,7 +67,8 @@ jobs:
         run: |
           mkdir -p build_appimage
           cd build_appimage
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          # Help CMake find Qt6
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6
           make -j$(nproc)
 
       - name: Create AppDir
@@ -114,15 +125,26 @@ jobs:
             build-essential \
             qt6-base-dev \
             qt6-base-dev-tools \
+            libqt6core6 \
+            libqt6gui6 \
+            libqt6widgets6 \
+            pkg-config \
+            libgl1-mesa-dev \
             dpkg-dev \
             debhelper \
             fakeroot
+
+      - name: Verify Qt6 installation
+        run: |
+          qmake6 --version || qmake --version || echo "qmake not found"
+          pkg-config --modversion Qt6Core || echo "Qt6 pkg-config not found"
 
       - name: Build application
         run: |
           mkdir -p build_deb
           cd build_deb
-          cmake .. -DCMAKE_BUILD_TYPE=Release
+          # Help CMake find Qt6
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6
           make -j$(nproc)
 
       - name: Build .deb package
@@ -152,13 +174,24 @@ jobs:
             build-essential \
             qt6-base-dev \
             qt6-base-dev-tools \
+            libqt6core6 \
+            libqt6gui6 \
+            libqt6widgets6 \
+            pkg-config \
+            libgl1-mesa-dev \
             rpm
+
+      - name: Verify Qt6 installation
+        run: |
+          qmake6 --version || qmake --version || echo "qmake not found"
+          pkg-config --modversion Qt6Core || echo "Qt6 pkg-config not found"
 
       - name: Build application
         run: |
           mkdir -p build_rpm
           cd build_rpm
-          cmake .. -DCMAKE_BUILD_TYPE=Release
+          # Help CMake find Qt6
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6
           make -j$(nproc)
 
       - name: Build .rpm package
