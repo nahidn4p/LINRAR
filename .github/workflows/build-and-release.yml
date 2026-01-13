@@ -70,31 +70,52 @@ jobs:
           # Help CMake find Qt6
           cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6
           make -j$(nproc)
+          
+      - name: Verify executable exists
+        run: |
+          if [ ! -f build_appimage/LINRAR ]; then
+            echo "Error: LINRAR executable not found!"
+            ls -la build_appimage/
+            exit 1
+          fi
+          echo "✓ LINRAR executable found"
 
       - name: Create AppDir
         run: |
+          cd build_appimage
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/pixmaps
-          cp build_appimage/LINRAR AppDir/usr/bin/
-          cp packaging/appimage/linrar.desktop AppDir/usr/share/applications/
-          if [ -f assets/icons/linrar.png ]; then
-            cp assets/icons/linrar.png AppDir/usr/share/pixmaps/
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          cp LINRAR AppDir/usr/bin/
+          cp ../packaging/appimage/linrar.desktop AppDir/usr/share/applications/
+          if [ -f ../assets/icons/linrar.png ]; then
+            cp ../assets/icons/linrar.png AppDir/usr/share/pixmaps/linrar.png
+            cp ../assets/icons/linrar.png AppDir/usr/share/icons/hicolor/256x256/apps/linrar.png
           fi
+          # Verify files are in place
+          ls -la AppDir/usr/bin/
+          ls -la AppDir/usr/share/applications/
+          ls -la AppDir/usr/share/pixmaps/ || true
+          ls -la AppDir/usr/share/icons/hicolor/256x256/apps/ || true
 
       - name: Run linuxdeploy
         run: |
           cd build_appimage
           export QMAKE=$(which qmake6 || which qmake)
-          linuxdeploy \
-            --appdir AppDir \
-            --executable AppDir/usr/bin/LINRAR \
-            --desktop-file AppDir/usr/share/applications/linrar.desktop \
-            --plugin qt \
-            --output appimage
+          # Build linuxdeploy command
+          LINUXDEPLOY_CMD="linuxdeploy --appdir AppDir --executable AppDir/usr/bin/LINRAR --desktop-file AppDir/usr/share/applications/linrar.desktop --plugin qt"
+          
+          # Add icon if it exists
           if [ -f AppDir/usr/share/pixmaps/linrar.png ]; then
-            linuxdeploy --appdir AppDir --icon-file AppDir/usr/share/pixmaps/linrar.png || true
+            LINUXDEPLOY_CMD="$LINUXDEPLOY_CMD --icon-file AppDir/usr/share/pixmaps/linrar.png"
           fi
+          
+          # Add output option
+          LINUXDEPLOY_CMD="$LINUXDEPLOY_CMD --output appimage"
+          
+          # Execute
+          eval $LINUXDEPLOY_CMD
 
       - name: Move AppImage
         run: |
