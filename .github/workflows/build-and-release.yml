@@ -87,7 +87,9 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/pixmaps
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          cp LINRAR AppDir/usr/bin/
+          # Copy executable and create symlink for desktop file
+          cp LINRAR AppDir/usr/bin/LINRAR
+          ln -s LINRAR AppDir/usr/bin/linrar
           cp ../packaging/appimage/linrar.desktop AppDir/usr/share/applications/
           if [ -f ../assets/icons/linrar.png ]; then
             cp ../assets/icons/linrar.png AppDir/usr/share/pixmaps/linrar.png
@@ -103,8 +105,8 @@ jobs:
         run: |
           cd build_appimage
           export QMAKE=$(which qmake6 || which qmake)
-          # Build linuxdeploy command
-          LINUXDEPLOY_CMD="linuxdeploy --appdir AppDir --executable AppDir/usr/bin/LINRAR --desktop-file AppDir/usr/share/applications/linrar.desktop --plugin qt"
+          # Build linuxdeploy command - use linrar (symlink) to match desktop file
+          LINUXDEPLOY_CMD="linuxdeploy --appdir AppDir --executable AppDir/usr/bin/linrar --desktop-file AppDir/usr/share/applications/linrar.desktop --plugin qt"
           
           # Add icon if it exists
           if [ -f AppDir/usr/share/pixmaps/linrar.png ]; then
