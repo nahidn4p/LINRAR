@@ -21,6 +21,12 @@ public:
     QString getLastExtractDirectory() const;
     void setLastExtractDirectory(const QString &path);
     
+    QString getLastAddFilesDirectory() const;
+    void setLastAddFilesDirectory(const QString &path);
+    
+    QString getLastSaveDirectory() const;
+    void setLastSaveDirectory(const QString &path);
+    
     int getDefaultCompressionLevel() const;
     void setDefaultCompressionLevel(int level);
     

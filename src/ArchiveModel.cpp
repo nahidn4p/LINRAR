@@ -1,4 +1,5 @@
 #include "ArchiveModel.h"
+#include "utils/ArchiveUtils.h"
 #include <QFileInfo>
 #include <QDir>
 #include <QIcon>
@@ -76,12 +77,12 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
                 if (entry.isDirectory) {
                     return QString();
                 }
-                return QString::number(entry.size);
+                return ArchiveUtils::formatFileSizeString(entry.size);
             case Compressed:
                 if (entry.isDirectory || entry.compressedSize == entry.size) {
                     return QString();
                 }
-                return QString::number(entry.compressedSize);
+                return ArchiveUtils::formatFileSizeString(entry.compressedSize);
             case Date:
                 return entry.date;
             default:

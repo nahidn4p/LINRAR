@@ -1,20 +1,26 @@
 #include "FileBrowser.h"
+#include "utils/ArchiveUtils.h"
 #include <QHeaderView>
 #include <QFileDialog>
 #include <QDir>
 #include <QAction>
+#include <QMenu>
+#include <QFileInfo>
+#include <QMessageBox>
 
 FileBrowser::FileBrowser(QWidget *parent)
-    : QWidget(parent) {
+    : QWidget(parent), contextMenu(nullptr) {
     layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     
     // Toolbar
     toolbar = new QToolBar(this);
     QAction *upAction = toolbar->addAction(tr("Up"));
+    upAction->setToolTip(tr("Go up one directory"));
     connect(upAction, &QAction::triggered, this, &FileBrowser::goUp);
     
     QAction *homeAction = toolbar->addAction(tr("Home"));
+    homeAction->setToolTip(tr("Go to home directory"));
     connect(homeAction, &QAction::triggered, this, &FileBrowser::goHome);
     
     toolbar->addSeparator();
@@ -23,6 +29,7 @@ FileBrowser::FileBrowser(QWidget *parent)
     // Path edit
     pathEdit = new QLineEdit(this);
     pathEdit->setPlaceholderText(tr("Path"));
+    pathEdit->setToolTip(tr("Enter path and press Enter to navigate"));
     connect(pathEdit, &QLineEdit::returnPressed, this, &FileBrowser::onPathChanged);
     layout->addWidget(pathEdit);
     
@@ -38,12 +45,16 @@ FileBrowser::FileBrowser(QWidget *parent)
     treeView->setAnimated(true);
     treeView->setIndentation(20);
     treeView->setSortingEnabled(true);
+    treeView->setContextMenuPolicy(Qt::CustomContextMenu);
     treeView->sortByColumn(0, Qt::AscendingOrder);
     
     connect(treeView, &QTreeView::doubleClicked, this, &FileBrowser::onItemDoubleClicked);
     connect(treeView->selectionModel(), &QItemSelectionModel::selectionChanged,
             this, &FileBrowser::onSelectionChanged);
+    connect(treeView, &QTreeView::customContextMenuRequested,
+            this, &FileBrowser::showContextMenu);
     
+    setupContextMenu();
     layout->addWidget(treeView);
     
     setCurrentPath(QDir::homePath());
@@ -133,4 +144,71 @@ void FileBrowser::goHome() {
     setCurrentPath(homePath);
     treeView->setRootIndex(model->index(homePath));
     emit directoryChanged(homePath);
+}
+
+void FileBrowser::setupContextMenu() {
+    contextMenu = new QMenu(this);
+    
+    QAction *addAction = contextMenu->addAction(tr("Add to Archive"), this, &FileBrowser::onAddToArchive);
+    addAction->setToolTip(tr("Add selected files to the current archive"));
+    
+    contextMenu->addSeparator();
+    
+    QAction *propertiesAction = contextMenu->addAction(tr("Properties"), this, &FileBrowser::onProperties);
+    propertiesAction->setToolTip(tr("Show file properties"));
+}
+
+void FileBrowser::showContextMenu(const QPoint &pos) {
+    QModelIndex index = treeView->indexAt(pos);
+    if (index.isValid()) {
+        // Select the item if not already selected
+        if (!treeView->selectionModel()->isSelected(index)) {
+            treeView->selectionModel()->select(index, QItemSelectionModel::Select);
+        }
+        contextMenu->exec(treeView->mapToGlobal(pos));
+    }
+}
+
+void FileBrowser::onAddToArchive() {
+    QStringList files = getSelectedFiles();
+    if (!files.isEmpty()) {
+        emit addToArchiveRequested(files);
+    }
+}
+
+void FileBrowser::onProperties() {
+    QModelIndexList indexes = treeView->selectionModel()->selectedIndexes();
+    if (indexes.isEmpty()) {
+        return;
+    }
+    
+    QModelIndex index = indexes.first();
+    if (index.column() != 0) {
+        index = model->index(index.row(), 0, index.parent());
+    }
+    
+    QString path = model->filePath(index);
+    QFileInfo info(path);
+    
+    QString fileType = info.isDir() ? tr("Directory") : tr("File");
+    QString size = info.isDir() ? tr("N/A") : ArchiveUtils::formatFileSizeString(info.size());
+    
+    QString infoText = tr("File Properties\n\n"
+                         "Name: %1\n"
+                         "Path: %2\n"
+                         "Size: %3\n"
+                         "Type: %4\n"
+                         "Modified: %5\n"
+                         "Permissions: %6")
+                      .arg(info.fileName())
+                      .arg(path)
+                      .arg(size)
+                      .arg(fileType)
+                      .arg(info.lastModified().toString())
+                      .arg(info.permissions().testFlag(QFile::ReadOwner) ? "r" : "-") +
+                      (info.permissions().testFlag(QFile::WriteOwner) ? "w" : "-") +
+                      (info.permissions().testFlag(QFile::ExeOwner) ? "x" : "-");
+    
+    QMessageBox::information(this, tr("Properties"), infoText);
+    emit propertiesRequested(path);
 }

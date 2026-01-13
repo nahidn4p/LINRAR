@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "utils/ArchiveUtils.h"
 #include <QApplication>
 #include <QFileInfo>
 #include <QDir>
@@ -65,6 +66,10 @@ void MainWindow::setupUI() {
     splitter->setSizes({400, 400});
     
     connect(archiveView, &ArchiveView::archiveChanged, this, &MainWindow::onArchiveChanged);
+    connect(archiveView, &ArchiveView::extractRequested, this, &MainWindow::extractSelected);
+    connect(archiveView, &ArchiveView::extractToRequested, this, &MainWindow::extractSelected);
+    connect(archiveView, &ArchiveView::deleteRequested, this, &MainWindow::removeFiles);
+    connect(fileBrowser, &FileBrowser::addToArchiveRequested, this, &MainWindow::addFiles);
 }
 
 void MainWindow::setupMenus() {
@@ -73,9 +78,11 @@ void MainWindow::setupMenus() {
     
     openAction = fileMenu->addAction(tr("&Open Archive..."), this, &MainWindow::openArchive);
     openAction->setShortcut(QKeySequence::Open);
+    openAction->setToolTip(tr("Open an existing archive file"));
     
     newAction = fileMenu->addAction(tr("&New Archive..."), this, &MainWindow::newArchive);
     newAction->setShortcut(QKeySequence::New);
+    newAction->setToolTip(tr("Create a new archive from selected files"));
     
     fileMenu->addSeparator();
     
@@ -86,33 +93,55 @@ void MainWindow::setupMenus() {
     
     closeAction = fileMenu->addAction(tr("&Close Archive"), this, &MainWindow::closeArchive);
     closeAction->setEnabled(false);
+    closeAction->setToolTip(tr("Close the currently open archive"));
+    
+    fileMenu->addSeparator();
+    
+    QAction *refreshAction = fileMenu->addAction(tr("&Refresh"), this, &MainWindow::refreshArchive);
+    refreshAction->setShortcut(Qt::Key_F5);
+    refreshAction->setToolTip(tr("Refresh the archive view"));
+    
+    fileMenu->addSeparator();
+    
+    QAction *refreshAction = fileMenu->addAction(tr("&Refresh"), this, &MainWindow::refreshArchive);
+    refreshAction->setShortcut(Qt::Key_F5);
+    refreshAction->setToolTip(tr("Refresh the archive view"));
     
     fileMenu->addSeparator();
     
     exitAction = fileMenu->addAction(tr("E&xit"), qApp, &QApplication::quit);
     exitAction->setShortcut(QKeySequence::Quit);
+    exitAction->setToolTip(tr("Exit the application"));
     
     // Archive menu
     archiveMenu = menuBar()->addMenu(tr("&Archive"));
     
     extractAction = archiveMenu->addAction(tr("&Extract..."), this, &MainWindow::extractArchive);
     extractAction->setShortcut(Qt::CTRL | Qt::Key_E);
+    extractAction->setToolTip(tr("Extract all files from the archive"));
     
     extractSelectedAction = archiveMenu->addAction(tr("Extract &Selected..."), 
                                                    this, &MainWindow::extractSelected);
+    extractSelectedAction->setToolTip(tr("Extract only the selected files from the archive"));
     
     archiveMenu->addSeparator();
     
     addAction = archiveMenu->addAction(tr("&Add Files..."), this, &MainWindow::addFiles);
     addAction->setShortcut(Qt::CTRL | Qt::Key_A);
+    addAction->setToolTip(tr("Add files to the current archive"));
     
     removeAction = archiveMenu->addAction(tr("&Remove Files"), this, &MainWindow::removeFiles);
     removeAction->setShortcut(Qt::Key_Delete);
+    removeAction->setToolTip(tr("Remove selected files from the archive"));
     
     archiveMenu->addSeparator();
     
     testAction = archiveMenu->addAction(tr("&Test Archive"), this, &MainWindow::testArchive);
+    testAction->setShortcut(Qt::CTRL | Qt::Key_T);
+    testAction->setToolTip(tr("Test the archive for errors"));
+    
     repairAction = archiveMenu->addAction(tr("&Repair Archive"), this, &MainWindow::repairArchive);
+    repairAction->setToolTip(tr("Attempt to repair a damaged archive"));
     
     // Tools menu
     toolsMenu = menuBar()->addMenu(tr("&Tools"));
@@ -120,12 +149,11 @@ void MainWindow::setupMenus() {
     
     // Help menu
     helpMenu = menuBar()->addMenu(tr("&Help"));
-    helpMenu->addAction(tr("&About"), this, [this]() {
-        QMessageBox::about(this, tr("About LINRAR"),
-            tr("LINRAR - Linux Archive Manager\n\n"
-               "A modern Qt 6-based archive manager for Linux.\n\n"
-               "Version 1.0.0"));
+    QAction *aboutAction = helpMenu->addAction(tr("&About LINRAR"), this, [this]() {
+        AboutDialog dialog(this);
+        dialog.exec();
     });
+    aboutAction->setToolTip(tr("Show information about LINRAR"));
 }
 
 void MainWindow::setupToolbar() {
@@ -140,6 +168,9 @@ void MainWindow::setupToolbar() {
     mainToolbar->addAction(removeAction);
     mainToolbar->addSeparator();
     mainToolbar->addAction(testAction);
+    
+    // Set tooltips for toolbar (already set on actions, but ensure they're visible)
+    mainToolbar->setToolTip(tr("Main toolbar - Quick access to common operations"));
 }
 
 void MainWindow::setupStatusBar() {
@@ -159,13 +190,26 @@ void MainWindow::openArchive() {
         
         ArchiveHandler *handler = getHandlerForFile(fileName);
         if (handler) {
+            if (!handler->isAvailable()) {
+                QMessageBox::warning(this, tr("Tool Not Available"), 
+                    tr("The required tool (%1) is not installed.\n\n"
+                       "Please install the necessary archive tools:\n"
+                       "- For RAR: rar or unrar\n"
+                       "- For 7Z: p7zip-full\n"
+                       "- For ZIP: zip and unzip\n"
+                       "- For TAR: tar").arg(handler->getToolName()));
+                statusBar()->showMessage(tr("Tool not available: %1").arg(handler->getToolName()));
+                return;
+            }
             archiveView->setArchive(fileName, handler);
             currentArchivePath = fileName;
             currentHandler = handler;
             updateActions();
-            statusBar()->showMessage(tr("Opened: %1").arg(QFileInfo(fileName).fileName()));
+            QFileInfo info(fileName);
+            statusBar()->showMessage(tr("Opened: %1 (%2)").arg(info.fileName(), ArchiveUtils::formatFileSizeString(info.size())));
         } else {
             QMessageBox::warning(this, tr("Error"), tr("Unsupported archive format."));
+            statusBar()->showMessage(tr("Unsupported archive format"));
         }
     }
 }
@@ -182,7 +226,10 @@ void MainWindow::createArchiveDialog() {
         return;
     }
     
-    QString lastDir = settingsManager->getLastOpenDirectory();
+    QString lastDir = settingsManager->getLastSaveDirectory();
+    if (lastDir.isEmpty()) {
+        lastDir = settingsManager->getLastOpenDirectory();
+    }
     QString fileName = QFileDialog::getSaveFileName(this, tr("Create Archive"),
                                                     lastDir + "/archive.zip",
                                                     tr("ZIP (*.zip);;RAR (*.rar);;7Z (*.7z);;TAR (*.tar);;TAR.GZ (*.tar.gz);;TAR.BZ2 (*.tar.bz2);;All Files (*)"));
@@ -191,7 +238,7 @@ void MainWindow::createArchiveDialog() {
         return;
     }
     
-    settingsManager->setLastOpenDirectory(QFileInfo(fileName).absolutePath());
+    settingsManager->setLastSaveDirectory(QFileInfo(fileName).absolutePath());
     
     // Ask for password (optional)
     bool ok;
@@ -245,7 +292,7 @@ void MainWindow::closeArchive() {
     currentArchivePath.clear();
     currentHandler = nullptr;
     updateActions();
-    statusBar()->showMessage(tr("Archive closed"));
+    statusBar()->showMessage(tr("Ready - No archive open"));
 }
 
 void MainWindow::extractArchive() {
@@ -320,9 +367,10 @@ void MainWindow::extractSelected() {
         
         if (success) {
             QMessageBox::information(this, tr("Success"), tr("Files extracted successfully."));
-            statusBar()->showMessage(tr("Extracted to: %1").arg(destDir));
+            statusBar()->showMessage(tr("Extracted %1 file(s) to: %2").arg(files.size()).arg(destDir));
         } else {
             QMessageBox::warning(this, tr("Error"), tr("Failed to extract files."));
+            statusBar()->showMessage(tr("Extraction failed"));
         }
     });
 }
@@ -356,9 +404,11 @@ void MainWindow::addFiles() {
             // Refresh archive view
             archiveView->setArchive(currentArchivePath, currentHandler);
             QMessageBox::information(this, tr("Success"), tr("Files added successfully."));
-            statusBar()->showMessage(tr("Files added"));
+            statusBar()->showMessage(tr("Added %1 file(s)").arg(files.size()));
         } else {
-            QMessageBox::warning(this, tr("Error"), tr("Failed to add files."));
+            QString errorMsg = tr("Failed to add files.");
+            QMessageBox::warning(this, tr("Error"), errorMsg);
+            statusBar()->showMessage(tr("Failed to add files"));
         }
     });
 }
@@ -400,9 +450,10 @@ void MainWindow::removeFiles() {
             // Refresh archive view
             archiveView->setArchive(currentArchivePath, currentHandler);
             QMessageBox::information(this, tr("Success"), tr("Files removed successfully."));
-            statusBar()->showMessage(tr("Files removed"));
+            statusBar()->showMessage(tr("Removed %1 file(s)").arg(files.size()));
         } else {
             QMessageBox::warning(this, tr("Error"), tr("Failed to remove files."));
+            statusBar()->showMessage(tr("Failed to remove files"));
         }
     });
 }
@@ -462,9 +513,12 @@ void MainWindow::repairArchive() {
         
         if (success) {
             QMessageBox::information(this, tr("Success"), tr("Archive repaired successfully."));
-            statusBar()->showMessage(tr("Archive repaired"));
+            statusBar()->showMessage(tr("Archive repair completed"));
+            // Refresh archive view
+            archiveView->setArchive(currentArchivePath, currentHandler);
         } else {
             QMessageBox::warning(this, tr("Error"), tr("Failed to repair archive."));
+            statusBar()->showMessage(tr("Archive repair failed"));
         }
     });
 }
@@ -529,9 +583,22 @@ void MainWindow::openRecentFile() {
     }
 }
 
+void MainWindow::refreshArchive() {
+    if (!currentArchivePath.isEmpty() && currentHandler) {
+        archiveView->setArchive(currentArchivePath, currentHandler);
+        statusBar()->showMessage(tr("Archive refreshed"));
+    } else {
+        statusBar()->showMessage(tr("No archive to refresh"));
+    }
+}
+
 void MainWindow::onArchiveChanged(const QString &archivePath) {
     Q_UNUSED(archivePath);
     updateActions();
+    if (!currentArchivePath.isEmpty()) {
+        QFileInfo info(currentArchivePath);
+        statusBar()->showMessage(tr("Archive: %1 - Ready").arg(info.fileName()));
+    }
 }
 
 void MainWindow::onProgress(const QString &message, int percentage) {

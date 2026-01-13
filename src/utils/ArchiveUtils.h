@@ -12,6 +12,7 @@ public:
     static bool isValidArchiveName(const QString &name);
     static QString getDefaultArchiveName(const QString &basePath);
     static qint64 formatFileSize(qint64 bytes);
+    static QString formatFileSizeString(qint64 bytes);
 };
 
 #endif // ARCHIVEUTILS_H

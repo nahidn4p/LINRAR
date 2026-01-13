@@ -40,6 +40,7 @@ set(SOURCES
     src/ProcessManager.cpp
     src/SettingsManager.cpp
     src/ProgressDialog.cpp
+    src/AboutDialog.cpp
     src/utils/ArchiveUtils.cpp
     src/utils/FormatDetector.cpp
 )
@@ -57,6 +58,7 @@ set(HEADERS
     src/ProcessManager.h
     src/SettingsManager.h
     src/ProgressDialog.h
+    src/AboutDialog.h
     src/utils/ArchiveUtils.h
     src/utils/FormatDetector.h
 )

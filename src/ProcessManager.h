@@ -24,6 +24,9 @@ public:
     
     QString getLastError() const { return lastError; }
     int getLastExitCode() const { return lastExitCode; }
+    QString getLastProgram() const { return lastProgram; }
+    QString getLastOutput() const { return outputBuffer; }
+    QString getLastErrorOutput() const { return errorBuffer; }
 
 signals:
     void finished(int exitCode);
@@ -41,6 +44,7 @@ private:
     QProcess *process;
     QString lastError;
     int lastExitCode;
+    QString lastProgram;
     QString outputBuffer;
     QString errorBuffer;
 };

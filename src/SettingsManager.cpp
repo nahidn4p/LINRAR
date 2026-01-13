@@ -51,6 +51,24 @@ void SettingsManager::setLastExtractDirectory(const QString &path) {
     settings->sync();
 }
 
+QString SettingsManager::getLastAddFilesDirectory() const {
+    return settings->value("lastAddFilesDirectory", QDir::homePath()).toString();
+}
+
+void SettingsManager::setLastAddFilesDirectory(const QString &path) {
+    settings->setValue("lastAddFilesDirectory", path);
+    settings->sync();
+}
+
+QString SettingsManager::getLastSaveDirectory() const {
+    return settings->value("lastSaveDirectory", QDir::homePath()).toString();
+}
+
+void SettingsManager::setLastSaveDirectory(const QString &path) {
+    settings->setValue("lastSaveDirectory", path);
+    settings->sync();
+}
+
 int SettingsManager::getDefaultCompressionLevel() const {
     return settings->value("defaultCompressionLevel", 5).toInt();
 }

@@ -19,6 +19,7 @@
 #include "handlers/TarHandler.h"
 #include "SettingsManager.h"
 #include "ProgressDialog.h"
+#include "AboutDialog.h"
 #include "utils/FormatDetector.h"
 
 class MainWindow : public QMainWindow {

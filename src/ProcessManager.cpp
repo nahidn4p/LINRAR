@@ -32,6 +32,7 @@ bool ProcessManager::execute(const QString &program, const QStringList &argument
     lastError.clear();
     outputBuffer.clear();
     errorBuffer.clear();
+    lastProgram = program;
     
     if (!workingDir.isEmpty()) {
         process->setWorkingDirectory(workingDir);
@@ -40,7 +41,7 @@ bool ProcessManager::execute(const QString &program, const QStringList &argument
     process->start(program, arguments);
     
     if (!process->waitForStarted(5000)) {
-        lastError = QString("Failed to start process: %1").arg(process->errorString());
+        lastError = QString("Failed to start %1: %2").arg(program, process->errorString());
         return false;
     }
     
@@ -89,24 +90,29 @@ void ProcessManager::onProcessFinished(int exitCode, QProcess::ExitStatus exitSt
 
 void ProcessManager::onProcessError(QProcess::ProcessError error) {
     QString errorMsg;
+    QString toolName = QFileInfo(lastProgram).baseName();
+    if (toolName.isEmpty()) {
+        toolName = lastProgram;
+    }
+    
     switch (error) {
         case QProcess::FailedToStart:
-            errorMsg = "Process failed to start";
+            errorMsg = QString("Failed to start %1. Please ensure it is installed and in your PATH.").arg(toolName);
             break;
         case QProcess::Crashed:
-            errorMsg = "Process crashed";
+            errorMsg = QString("%1 crashed during execution.").arg(toolName);
             break;
         case QProcess::Timedout:
-            errorMsg = "Process timed out";
+            errorMsg = QString("%1 operation timed out.").arg(toolName);
             break;
         case QProcess::WriteError:
-            errorMsg = "Write error";
+            errorMsg = QString("Write error while communicating with %1.").arg(toolName);
             break;
         case QProcess::ReadError:
-            errorMsg = "Read error";
+            errorMsg = QString("Read error while communicating with %1.").arg(toolName);
             break;
         default:
-            errorMsg = "Unknown error";
+            errorMsg = QString("Unknown error with %1.").arg(toolName);
     }
     
     lastError = errorMsg;
