@@ -1,0 +1,260 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: false
+        type: string
+
+env:
+  QT_VERSION: '6.9.2'
+
+jobs:
+  build-appimage:
+    name: Build AppImage
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            qt6-base-dev \
+            qt6-base-dev-tools \
+            wget \
+            file \
+            libfuse2
+
+      - name: Download linuxdeploy
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+          sudo mv linuxdeploy-x86_64.AppImage /usr/local/bin/linuxdeploy
+
+      - name: Download linuxdeploy-plugin-qt
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-plugin-qt-x86_64.AppImage
+          sudo mv linuxdeploy-plugin-qt-x86_64.AppImage /usr/local/bin/linuxdeploy-plugin-qt
+
+      - name: Build application
+        run: |
+          mkdir -p build_appimage
+          cd build_appimage
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          make -j$(nproc)
+
+      - name: Create AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/pixmaps
+          cp build_appimage/LINRAR AppDir/usr/bin/
+          cp packaging/appimage/linrar.desktop AppDir/usr/share/applications/
+          if [ -f assets/icons/linrar.png ]; then
+            cp assets/icons/linrar.png AppDir/usr/share/pixmaps/
+          fi
+
+      - name: Run linuxdeploy
+        run: |
+          cd build_appimage
+          export QMAKE=$(which qmake6 || which qmake)
+          linuxdeploy \
+            --appdir AppDir \
+            --executable AppDir/usr/bin/LINRAR \
+            --desktop-file AppDir/usr/share/applications/linrar.desktop \
+            --plugin qt \
+            --output appimage
+          if [ -f AppDir/usr/share/pixmaps/linrar.png ]; then
+            linuxdeploy --appdir AppDir --icon-file AppDir/usr/share/pixmaps/linrar.png || true
+          fi
+
+      - name: Move AppImage
+        run: |
+          mkdir -p dist
+          if [ -f build_appimage/LINRAR-x86_64.AppImage ]; then
+            mv build_appimage/LINRAR-x86_64.AppImage dist/
+          fi
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LINRAR-x86_64.AppImage
+          path: dist/LINRAR-x86_64.AppImage
+          if-no-files-found: error
+
+  build-deb:
+    name: Build .deb Package
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            qt6-base-dev \
+            qt6-base-dev-tools \
+            dpkg-dev \
+            debhelper \
+            fakeroot
+
+      - name: Build application
+        run: |
+          mkdir -p build_deb
+          cd build_deb
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+
+      - name: Build .deb package
+        run: |
+          cd build_deb
+          cpack -G DEB
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linrar-deb-package
+          path: build_deb/linrar_*.deb
+          if-no-files-found: error
+
+  build-rpm:
+    name: Build .rpm Package
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            qt6-base-dev \
+            qt6-base-dev-tools \
+            rpm
+
+      - name: Build application
+        run: |
+          mkdir -p build_rpm
+          cd build_rpm
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+
+      - name: Build .rpm package
+        run: |
+          cd build_rpm
+          cpack -G RPM
+
+      - name: Upload .rpm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linrar-rpm-package
+          path: build_rpm/linrar-*.rpm
+          if-no-files-found: error
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-appimage, build-deb, build-rpm]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          pattern: |
+            **/*.AppImage
+            **/*.deb
+            **/*.rpm
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ -n "${{ github.event.inputs.version }}" ]; then
+              VERSION="${{ github.event.inputs.version }}"
+            else
+              VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+            fi
+          else
+            VERSION=$(echo "${{ github.ref }}" | sed 's/refs\/tags\///')
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            NOTES="## LINRAR ${{ steps.version.outputs.version }}
+
+          Initial release of LINRAR - Linux Archive Manager.
+
+          ### Features
+          - Support for RAR, ZIP, 7Z, TAR formats
+          - Modern Qt-based GUI
+          - Dual-pane interface
+          - Archive operations: create, extract, view, modify, test, repair"
+          else
+            NOTES="## LINRAR ${{ steps.version.outputs.version }}
+
+          ### Changes since $PREV_TAG
+
+          \`\`\`
+          $(git log $PREV_TAG..HEAD --pretty=format:'- %s' --no-merges)
+          \`\`\`"
+          fi
+          echo "$NOTES" > release_notes.md
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Find artifacts
+        id: find_artifacts
+        run: |
+          echo "AppImage: $(find release-artifacts -name '*.AppImage' -type f | head -1 || echo '')" >> $GITHUB_OUTPUT
+          echo "DEB: $(find release-artifacts -name '*.deb' -type f | head -1 || echo '')" >> $GITHUB_OUTPUT
+          echo "RPM: $(find release-artifacts -name '*.rpm' -type f | head -1 || echo '')" >> $GITHUB_OUTPUT
+          ls -la release-artifacts/ || true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: LINRAR ${{ steps.version.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            release-artifacts/**/*
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' || false }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

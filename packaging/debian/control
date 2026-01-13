@@ -1,0 +1,34 @@
+Source: linrar
+Section: utils
+Priority: optional
+Maintainer: LINRAR Team <linrar@example.com>
+Build-Depends: cmake (>= 3.16),
+               qt6-base-dev (>= 6.0.0) | qtbase5-dev (>= 5.15.0),
+               qt6-base-dev-tools | qt5-qmake,
+               debhelper (>= 12),
+               pkg-config
+Standards-Version: 4.5.0
+Homepage: https://github.com/linrar/linrar
+Vcs-Browser: https://github.com/linrar/linrar
+Vcs-Git: https://github.com/linrar/linrar.git
+
+Package: linrar
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         rar | unrar,
+         p7zip-full | 7z,
+         zip,
+         unzip,
+         tar
+Description: Linux Archive Manager - WinRAR alternative
+ LINRAR is a modern Qt-based archive manager for Linux that provides
+ WinRAR-like functionality by interfacing with native command-line tools
+ (rar, 7zip, tar, etc.).
+ .
+ Features:
+  - Support for RAR, ZIP, 7Z, TAR, TAR.GZ, TAR.BZ2, TAR.XZ formats
+  - Create, extract, view, and modify archives
+  - Password protection and encryption
+  - Modern dual-pane interface
+  - Drag and drop support

@@ -1,0 +1,9 @@
+linrar (1.0.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Support for RAR, ZIP, 7Z, TAR formats
+  * Modern Qt-based GUI
+  * Dual-pane interface
+  * Archive operations: create, extract, view, modify, test, repair
+
+ -- LINRAR Team <linrar@example.com>  Mon, 01 Jan 2024 12:00:00 +0000

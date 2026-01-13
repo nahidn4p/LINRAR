@@ -1,0 +1,48 @@
+name: Build Test
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-test:
+    name: Build Test
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        build-type: [Debug, Release]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            qt6-base-dev \
+            qt6-base-dev-tools
+
+      - name: Configure and build
+        run: |
+          mkdir -p build_test
+          cd build_test
+          cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
+          make -j$(nproc)
+
+      - name: Test executable exists
+        run: |
+          test -f build_test/LINRAR || exit 1
+          echo "Build successful: LINRAR executable created"
+
+      - name: Check binary dependencies
+        run: |
+          ldd build_test/LINRAR || echo "Static binary or dependencies check skipped"
